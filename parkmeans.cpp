@@ -1,9 +1,15 @@
+/* 
+ * PRL 2023 - Projekt 2
+ * Author: Vojtech Fiala <xfiala61>
+*/
+
 #include <iostream>
 #include <mpi.h>
 #include <vector>
 #include <cstdlib>
 #include <fstream>
 #include <limits>
+//#include <iomanip>
 
 #define n_of_clusters 4
 #define endless_cycle_prevention 30000
@@ -29,10 +35,10 @@ vector<uint8_t> loadNumbers(int size) {
 
     vector<uint8_t> numbers = readNumbers();
 
-    if (numbers.size() > size) { // Pokud po spuštění počet procesů N se nerovná velikosti vstupní posloupnosti, pak v případě že je na vstupu hodnot vice, pracujte s prvními N hodnotami
+    if (numbers.size() > size) { // If there's more numbers than the processes, cut them off
         numbers = {numbers.begin(), numbers.begin()+size};
     }
-    else if (numbers.size() < size) { //Pokud je hodnot méně, výpočet neprovádějte a nechte aplikaci toto oznámit na obrazovku.
+    else if (numbers.size() < size) { // If there's less numbers than processes, error
         fprintf(stderr, "There is less values than the number of processes!\n");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
@@ -137,8 +143,11 @@ int main(int argc, char** argv) {
         pair<vector<int>, vector<int>> values = assignToCluster(givenNumber, centers);
 
         vector<int> global_cluster_members, total_value_for_cluster;
-        global_cluster_members.resize(n_of_clusters);
-        total_value_for_cluster.resize(n_of_clusters);
+
+        if (rank == 0) {
+            global_cluster_members.resize(n_of_clusters);
+            total_value_for_cluster.resize(n_of_clusters);
+        }
 
         // Calculate new centroids and total value of numbers in each centroid 
         // This could also be done with Allreduce and then each process would calculate the new centroids by itself.. 
@@ -165,17 +174,19 @@ int main(int argc, char** argv) {
 
         int i = 0;
         for (auto& cluster : clusters) {
+            // cout << std::fixed << setprecision(4) << "[" << centers[i] << "] ";
             cout << "[" << centers[i] << "] ";
             auto lim = cluster.size();
             for (int k = 0; k < lim; k++) {
                 // last one doesnt print the final comma
                 if (k == (lim-1)) {
-                    cout << static_cast<int>(cluster[k]) << endl;
+                    cout << static_cast<int>(cluster[k]);
                 }
                 else {
                     cout << static_cast<int>(cluster[k]) << ", ";
                 }
             }
+            cout << endl;
             i++;
         }
     }
