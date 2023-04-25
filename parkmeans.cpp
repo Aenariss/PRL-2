@@ -21,7 +21,7 @@ using namespace std;
 vector<uint8_t> readNumbers() {
     ifstream num_file ("numbers", ios::binary);
     vector<uint8_t> nums;
-    if (!num_file) exit(1); // error opening file
+    if (!num_file) MPI_Abort(MPI_COMM_WORLD, 1); // error opening file
 
     uint8_t i;
     while (num_file.read((char*)&i, sizeof(uint8_t)))
@@ -40,6 +40,11 @@ vector<uint8_t> loadNumbers(int size) {
     }
     else if (numbers.size() < size) { // If there's less numbers than processes, error
         fprintf(stderr, "There is less values than the number of processes!\n");
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+
+    else if (numbers.size() < 4 || numbers.size() > 32) {
+        fprintf(stderr, "Unsupported number of values!\n");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
@@ -135,19 +140,22 @@ int main(int argc, char** argv) {
 
     int steps = 0;
 
+    // prepare space for reduce operation results
+    vector<int> global_cluster_members, total_value_for_cluster;
+    if (rank == 0) {
+        global_cluster_members.resize(n_of_clusters);
+        total_value_for_cluster.resize(n_of_clusters);
+    }
+
+    vector<uint8_t> c1,c2,c3,c4; // 4 center vectors
+    vector<vector<uint8_t>> clusters =  {c1,c2,c3,c4};
+
     // break the loop if the centers dont change anymore or if its over 30000 steps - in that case, something probably went wrong and this is a failsafe
     while ((prev_centers != centers) || (steps > endless_cycle_prevention)) {
 
         prev_centers = centers;
         // calculate which cluster the value will be assigned to and save it in a support vector that contains number of values in each cluster
         pair<vector<int>, vector<int>> values = assignToCluster(givenNumber, centers);
-
-        vector<int> global_cluster_members, total_value_for_cluster;
-
-        if (rank == 0) {
-            global_cluster_members.resize(n_of_clusters);
-            total_value_for_cluster.resize(n_of_clusters);
-        }
 
         // Calculate new centroids and total value of numbers in each centroid 
         // This could also be done with Allreduce and then each process would calculate the new centroids by itself.. 
